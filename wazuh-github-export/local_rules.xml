@@ -1,0 +1,41 @@
+<!-- Local rules -->
+
+<!-- Modify it at your will. -->
+<!-- Copyright (C) 2015, Wazuh Inc. -->
+
+<!-- Example -->
+<group name="local,syslog,sshd,">
+
+  <!--
+  Dec 10 01:02:02 host sshd[1234]: Failed none for root from 1.1.1.1 port 1066 ssh2
+  -->
+  <rule id="100001" level="5">
+    <if_sid>5716</if_sid>
+    <srcip>1.1.1.1</srcip>
+    <description>sshd: authentication failed from IP 1.1.1.1.</description>
+    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,</group>
+  </rule>
+
+  <rule id="100011" level="10">
+    <if_group>windows</if_group>
+    <field name="win.system.eventID">^4625$</field>
+    <description>ATTACK: Multiple Brute Force Attempts Detected! [MITRE ATT&amp;CK T1110]</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_failed,brute_force</group>
+  </rule>
+
+  <rule id="100020" level="12">
+    <if_sid>61603</if_sid> <field name="win.eventdata.image" type="pcre2">(?i)wevtutil\.exe</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)cl\s+(Security|System|Application|Setup)</field>
+    <list field="win.eventdata.user" lookup="not_match_key">etc/lists/authorized_admins</list>
+    <description>CRITICAL: Unauthorized Clearing of Windows Event Logs Detected! [MITRE ATT&amp;CK T1562.001]</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+    <group>defense_evasion,log_clearing</group>
+  </rule>
+
+</group>
+

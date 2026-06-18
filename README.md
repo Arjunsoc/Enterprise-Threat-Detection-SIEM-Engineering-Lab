@@ -34,43 +34,6 @@ smbclient -L //192.168.159.13 -U Administrator%WrongPasswordAttempt
 <img width="921" height="400" alt="Screenshot 2026-06-18 151549" src="https://github.com/user-attachments/assets/9b8d717b-e2d3-42f5-bd7d-f4eb404367d6" />
 <img width="776" height="527" alt="Screenshot 2026-06-18 152352" src="https://github.com/user-attachments/assets/23be2644-561c-4b9f-a664-52e06d1edab6" />
 
-<!-- End of Phase 1 Image -->
-
-
----
-
-## 🛑 Phase 2: Defense Evasion – Detecting Event Log Clearing (MITRE ATT&CK T1562.001)
-
-### 📋 Objective
-
-To detect malicious attempts by an adversary to delete Windows Event logs to hide their operational footprint, while filtering out routine maintenance actions performed by designated system administrators.
- Detection Engineering Logic
-
-The wevtutil.exe utility is tracked via Sysmon process creation logs (Event ID 1). A custom rule maps specific regex arguments matching the log clearing syntax (cl). To avoid alert fatigue, the rule evaluates the executing user identity against a local CDB database file containing authorized administrator accounts.
-
-    The Whitelist Database (authorized_admins):
-
-arjun:
-Administrator:
-SYSTEM:
-
-**The Custom Alert Rule (local_rules.xml):**
-
-``xml
-<rule id="100020" level="12">
-  <if_sid>61603</if_sid>
-  <field name="win.eventdata.image" type="pcre2">(?i)wevtutil\.exe</field>
-  <field name="win.eventdata.commandLine" type="pcre2">(?i)cl\s+(Security|System|Application)</field>
-  <list field="win.eventdata.user" lookup="not_match_key">etc/lists/authorized_admins</list>
-  <description>CRITICAL: Unauthorized Clearing of Windows Event Logs Detected! Potential Defense Evasion.</description>
-  <mitre>
-    <id>T1562.001</id>
-  </mitre>
-  <group>defense_evasion,impair_defenses</group>
-</rule>
-
-Attack Simulation & Verification
-
 An unauthorized user account on the target system executed the log wiping command via the command prompt:
 
 wevtutil cl Security

@@ -24,13 +24,13 @@ A custom alert rule was created to track high-frequency Windows security authent
     <id>T1110</id>
   </mitre>
 </rule>
-`
+```
 ###  Attack Simulation & Verification
 From a remote attacker instance on the local subnet, an active protocol scan was launched against the target Windows machine share path to trigger real-time failure telemetry:
 
 ```bash
 smbclient -L //192.168.159.13 -U Administrator%WrongPasswordAttempt
-`
+```
 
 Wazuh SIEM Detection Telemetry:
 

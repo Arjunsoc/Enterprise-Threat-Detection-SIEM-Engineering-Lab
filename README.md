@@ -43,3 +43,45 @@ Kali Linux Simulation:
 
 <img width="921" height="400" alt="Screenshot 2026-06-18 151549" src="https://github.com/user-attachments/assets/c54f97ef-04b8-4527-b007-b572d1aa5719" />
 
+
+**🛑 Phase 2: Defense Evasion – Detecting Event Log Clearing (MITRE ATT&CK T1562.001)**
+ Objective
+
+To detect malicious attempts by an adversary to delete Windows Event logs to hide their operational footprint, while filtering out routine maintenance actions performed by designated system administrators.
+
+**Detection Engineering Logic**
+
+The wevtutil.exe utility is tracked via Sysmon process creation logs (Event ID 1). A custom rule maps specific regex arguments matching the log clearing syntax.
+
+The Whitelist Database (authorized_admins):
+arjun:
+Administrator:
+SYSTEM:
+
+**The Custom Alert Rule**
+
+```xml
+<rule id="100020" level="12">
+    <if_sid>61603</if_sid> <field name="win.eventdata.image" type="pcre2">(?i)wevtutil\.exe</field>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)cl\s+(Security|System|Application|Setup)</field>
+    <list field="win.eventdata.user" lookup="not_match_key">etc/lists/authorized_admins</list>
+    <description>CRITICAL: Unauthorized Clearing of Windows Event Logs Detected! [MITRE ATT&amp;CK T1562.001]</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+    <group>defense_evasion,log_clearing</group>
+  </rule>
+```
+###  Attack Simulation & Verification
+To simulate an adversary attempting to evade detection and clear their tracks, the following log-wiping command was executed from an unauthorized context on the target Windows endpoint:
+
+```powershell
+wevtutil cl Security
+```
+<img width="1057" height="677" alt="Screenshot 2026-06-18 142253" src="https://github.com/user-attachments/assets/174ff369-6373-407a-a683-8ca95199d2d3" />
+
+Wazuh SIEM Detection Telemetry:
+
+<img width="1007" height="637" alt="Screenshot 2026-06-18 142001" src="https://github.com/user-attachments/assets/c9e1a917-8ca9-4de9-a24e-1e640138e501" />
+
+

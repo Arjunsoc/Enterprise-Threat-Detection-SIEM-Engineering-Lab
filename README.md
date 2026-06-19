@@ -34,8 +34,12 @@ smbclient -L //192.168.159.13 -U Administrator%WrongPasswordAttempt
 
 Wazuh SIEM Detection Telemetry:
 
+
 <img width="776" height="527" alt="Screenshot 2026-06-18 152352" src="https://github.com/user-attachments/assets/2ed336b2-bba5-4231-ac52-aa4bb07680bb" />
+
 
 Kali Linux Simulation:
 
+
 <img width="921" height="400" alt="Screenshot 2026-06-18 151549" src="https://github.com/user-attachments/assets/c54f97ef-04b8-4527-b007-b572d1aa5719" />
+

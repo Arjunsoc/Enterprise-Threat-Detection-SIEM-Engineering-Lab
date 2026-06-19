@@ -6,12 +6,12 @@ This project documents the development and validation of a centralized security 
 
 ---
 
-🛑 ##  Phase 1: Brute Force Detection – Network Telemetry Parsing (MITRE ATT&CK T1110)
+ ###  Phase 1: Brute Force Detection – Network Telemetry Parsing (MITRE ATT&CK T1110)
 
-### Objective
+**Objective**
 To successfully capture and alert on distributed network brute-force attempts targeting internal file shares (SMB) and remote access points (RDP), ensuring the SIEM correctly records the true remote attacker IP address rather than local system endpoints.
 
-### Detection Engineering Logic
+**Detection Engineering Logic**
 A custom alert rule was created to track high-frequency Windows security authentication failures (Event ID 4625). To filter out standard system noise and focus explicitly on authentication protocol vectors, the rule flags instances utilizing the Negotiate or NTLM authentication packages over network-based logon streams.
 
  **Custom Alert Rule (`local_rules.xml`):**
@@ -25,7 +25,7 @@ A custom alert rule was created to track high-frequency Windows security authent
   </mitre>
 </rule>
 ```
-###  Attack Simulation & Verification
+**Attack Simulation & Verification**
 From a remote attacker instance on the local subnet, an active protocol scan was launched against the target Windows machine share path to trigger real-time failure telemetry:
 
 ```bash
@@ -44,7 +44,10 @@ Kali Linux Simulation:
 <img width="921" height="400" alt="Screenshot 2026-06-18 151549" src="https://github.com/user-attachments/assets/c54f97ef-04b8-4527-b007-b572d1aa5719" />
 
 
-**🛑 Phase 2: Defense Evasion – Detecting Event Log Clearing (MITRE ATT&CK T1562.001)**
+
+
+
+### Phase 2: Defense Evasion – Detecting Event Log Clearing (MITRE ATT&CK T1562.001)**
  Objective
 
 To detect malicious attempts by an adversary to delete Windows Event logs to hide their operational footprint, while filtering out routine maintenance actions performed by designated system administrators.
@@ -72,7 +75,7 @@ SYSTEM:
     <group>defense_evasion,log_clearing</group>
   </rule>
 ```
-###  Attack Simulation & Verification
+**Attack Simulation & Verification**
 To simulate an adversary attempting to evade detection and clear their tracks, the following log-wiping command was executed from an unauthorized context on the target Windows endpoint:
 
 ```powershell

@@ -30,7 +30,7 @@ From a remote attacker instance on the local subnet, an active protocol scan was
 
 ```bash
 smbclient -L //192.168.159.13 -U Administrator%WrongPasswordAttempt
-
+'
 
 Wazuh SIEM Detection Telemetry:
 

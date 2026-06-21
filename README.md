@@ -88,3 +88,50 @@ Wazuh SIEM Detection Telemetry:
 <img width="1007" height="637" alt="Screenshot 2026-06-18 142001" src="https://github.com/user-attachments/assets/c9e1a917-8ca9-4de9-a24e-1e640138e501" />
 
 
+###  Phase 3: Active Response & Automated Incident Containment
+## 📋 Architectural Overview
+To advance the detection platform from a passive monitoring repository into a proactive incident mitigation engine, an **SOAR-style Active Response pipeline** was engineered. The implementation specifically targets threat vectors associated with **MITRE ATT&CK T1562.001 (Impair Defenses: Indicator Blocking)**—specifically, administrative attempts to wipe system logs via the Windows event utility (`wevtutil.exe`).
+
+The end-to-end telemetry loop operates under the following execution path:
+1. **Trigger:** An adversary attempts execution of `wevtutil cl Security` on a monitored Windows endpoint.
+2. **Ingestion & Correlation:** Sysmon captures the process execution event thread, passing it via the local encrypted socket to the Wazuh Agent. The Wazuh Manager correlates the metadata payload against **Custom Detection Rule ID: 100020**.
+3. **Orchestration:** Upon matching rule conditions, the Manager's engine fires an Active Response action packet down the persistent command channel (`TCP 1514`) targeting the specific agent.
+4. **Containment:** The local Wazuh Agent passes the structured JSON alert parameters via Standard Input (`STDIN`) to a batch wrapper middleman, which translates the pipe into a custom kernel-level PowerShell termination thread, killing the offending process ID before file-system erasure can finalize.
+
+
+### Technical Implementation
+
+ 1. Endpoint Automation Script (`C:\Program Files (x86)\ossec-agent\active-response\bin\kill-malicious-process.ps1`)
+This production-grade script handles the raw JSON stream emitted by the `wazuh-execd` daemon, deserializes the multi-nested parameter block, isolates the specific process tree ID (`processId`), forcefully drops the execution context, and appends a cryptographic trace entry to the local log audit pipeline:
+
+```powershell
+$DebugPreference = "Continue"
+$LogFile = "C:\Program Files (x86)\ossec-agent\active-response\active-responses.log"
+
+# 1. Read structural JSON telemetry passed via standard STDIN pipe from Wazuh Execd
+$inputJson = $input | Out-String
+
+if (-not $inputJson) {
+    Add-Content $LogFile "$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') [Process Killer] Error: Received empty STDIN data pipe block."
+    Exit 0
+}
+
+try {
+    # 2. Deserialize the raw string into an accessible object model
+    $alertObject = ConvertFrom-Json $inputJson
+
+    # 3. Target and isolate the explicit offensive Process ID (PID) from the nested Sysmon event metadata
+    $pidToKill = $alertObject.parameters.alert.data.win.eventdata.processId
+
+    if ($pidToKill) {
+        # 4. Terminate the thread immediately using the native Windows kernel interaction interface
+        Stop-Process -Id $pidToKill -Force
+        Add-Content $LogFile "$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') [Process Killer] Successfully terminated malicious PID: $pidToKill"
+    } else {
+        Add-Content $LogFile "$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') [Process Killer] Alert received, but target metadata did not contain a valid processId field."
+    }
+}
+catch {
+    Add-Content $LogFile "$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') [Process Killer] Exception occurred during execution loop: $_"
+}
+```

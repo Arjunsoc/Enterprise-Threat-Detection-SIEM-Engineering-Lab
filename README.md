@@ -6,7 +6,7 @@ This project documents the development and validation of a centralized security 
 
 ---
 
- ###  Phase 1: Brute Force Detection – Network Telemetry Parsing (MITRE ATT&CK T1110)
+ ##  Phase 1: Brute Force Detection – Network Telemetry Parsing (MITRE ATT&CK T1110)
 
 **Objective**
 To successfully capture and alert on distributed network brute-force attempts targeting internal file shares (SMB) and remote access points (RDP), ensuring the SIEM correctly records the true remote attacker IP address rather than local system endpoints.
@@ -47,7 +47,7 @@ Kali Linux Simulation:
 
 
 
-### Phase 2: Defense Evasion – Detecting Event Log Clearing (MITRE ATT&CK T1562.001)**
+## Phase 2: Defense Evasion – Detecting Event Log Clearing (MITRE ATT&CK T1562.001)**
  Objective
 
 To detect malicious attempts by an adversary to delete Windows Event logs to hide their operational footprint, while filtering out routine maintenance actions performed by designated system administrators.
@@ -88,8 +88,8 @@ Wazuh SIEM Detection Telemetry:
 <img width="1007" height="637" alt="Screenshot 2026-06-18 142001" src="https://github.com/user-attachments/assets/c9e1a917-8ca9-4de9-a24e-1e640138e501" />
 
 
-###  Phase 3: Active Response & Automated Incident Containment
-## 📋 Architectural Overview
+##  Phase 3: Active Response & Automated Incident Containment
+### Architectural Overview
 To advance the detection platform from a passive monitoring repository into a proactive incident mitigation engine, an **SOAR-style Active Response pipeline** was engineered. The implementation specifically targets threat vectors associated with **MITRE ATT&CK T1562.001 (Impair Defenses: Indicator Blocking)**—specifically, administrative attempts to wipe system logs via the Windows event utility (`wevtutil.exe`).
 
 The end-to-end telemetry loop operates under the following execution path:
@@ -101,7 +101,7 @@ The end-to-end telemetry loop operates under the following execution path:
 
 ### Technical Implementation
 
- 1. Endpoint Automation Script (`C:\Program Files (x86)\ossec-agent\active-response\bin\kill-malicious-process.ps1`)
+ 1.**Endpoint Automation Script** (`C:\Program Files (x86)\ossec-agent\active-response\bin\kill-malicious-process.ps1`)
 This production-grade script handles the raw JSON stream emitted by the `wazuh-execd` daemon, deserializes the multi-nested parameter block, isolates the specific process tree ID (`processId`), forcefully drops the execution context, and appends a cryptographic trace entry to the local log audit pipeline:
 
 ```powershell
@@ -135,3 +135,69 @@ catch {
     Add-Content $LogFile "$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') [Process Killer] Exception occurred during execution loop: $_"
 }
 ```
+
+2.**Batch Execution Wrapper File** (C:\Program Files (x86)\ossec-agent\active-response\bin\kill-process.bat)
+
+```cmd
+   @echo off
+   powershell.exe -ExecutionPolicy Bypass -Command "$input | & '%~dp0kill-malicious-process.ps1'"
+```
+3.**Monitored Agent Local Configuration** (C:\Program Files (x86)\ossec-agent\ossec.conf)
+
+To ensure compliance with local asset hardening constraints, the agent endpoint file was updated to allow execution commands and explicitly register the valid signature path parameters
+
+```xml
+<active-response>
+    <disabled>no</disabled>
+    <ca_store>wpk_root.pem</ca_store>
+    <ca_verification>no</ca_verification>
+  </active-response>
+
+  <command>
+    <name>win-kill-process</name>
+    <executable>kill-process.bat</executable>
+    <timeout_allowed>no</timeout_allowed>
+  </command>
+```
+
+4. **Centralized Manager Configuration Layout**(/var/ossec/etc/ossec.conf)
+
+The central engine on the Ubuntu Manager links the custom telemetry generation stream directly to the target execution file, establishing the binding loop between Rule 100020 and the endpoint action framework
+
+```xml
+<command>
+    <name>win-kill-process</name>
+    <executable>kill-process.bat</executable>
+    <timeout_allowed>no</timeout_allowed>
+  </command>
+
+  <active-response>
+    <disabled>no</disabled>
+    <command>win-kill-process</command>
+    <location>local</location>
+    <rules_id>100020</rules_id>
+  </active-response>
+```
+
+### Simulation, Verification & Definitive Proof
+1.**Attacker Emulation Context**
+
+From an administrative shell context on the Windows endpoint, an automated log erasure routine was initialized to erase security traces
+
+```powershell
+wevtutil cl Security
+```
+
+2. **Endpoint Containment Validation Log**
+
+Inspection of the endpoint active response log trace confirms that the automated loop successfully intercepted the attack, evaluated the telemetry context, extracted target PID 1172, and safely terminated the threat
+
+2026-06-21 13:17:34 [Process Killer] Successfully terminated malicious PID: 1172
+
+<img width="1336" height="797" alt="Screenshot 2026-06-21 134912" src="https://github.com/user-attachments/assets/25d6f39a-2c0f-4fb5-a6c0-2c3157fdc798" />
+
+
+3. **SIEM Dashboard Analysis & Metric Tracking**
+
+   <img width="772" height="493" alt="Screenshot 2026-06-21 135027" src="https://github.com/user-attachments/assets/226a9113-3f07-4e28-a4f7-be19aefb6fc6" />
+

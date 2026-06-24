@@ -256,3 +256,25 @@ catch {
     Add-Content -Path $log_path -Value "$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') active-response/bin/virustotal.ps1: CRITICAL - $($_.Exception.Message)"
 }
 ```
+**2. Local File Collector Configuration (ossec.conf - Windows Agent)**
+To ensure the agent reads the text stream accurately without path ambiguity, an absolute target path is specified inside the log collection array
+
+```xml
+<localfile>
+    <location>C:\Program Files (x86)\ossec-agent\active-response\active-responses.log</location>
+    <log_format>syslog</log_format>
+</localfile>
+```
+
+**3. Custom Decoupled Detection Rule (local_rules.xml - Wazuh Manager)**
+
+To reliably catch the text pattern independent of rigid log group constraints or OS classification rules, this matching logic parses the syslog stream directly:
+
+```xml
+<group name="windows_sysmon,">
+    <!-- Rule 100050: Independent Text-Match Alerting Block -->
+    <rule id="100050" level="12">
+        <match>active-response/bin/virustotal.ps1: SUCCESS</match>
+        <description>VirusTotal Integration: Threat Intelligence confirmed malicious file hash match.</description>
+    </rule>
+```

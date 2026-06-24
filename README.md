@@ -201,3 +201,58 @@ Inspection of the endpoint active response log trace confirms that the automated
 
    <img width="772" height="493" alt="Screenshot 2026-06-21 135027" src="https://github.com/user-attachments/assets/226a9113-3f07-4e28-a4f7-be19aefb6fc6" />
 
+
+## Phase 4: Cross-Platform Threa Intelligence Enrichment & Centralized Alerting Pipeline
+
+### Architectural Overview
+To supplement endpoint behavioral monitoring with global threat intelligence, an automated **Threat Intelligence Enrichment pipeline** was integrated into the architecture. This phase shifts the system from standalone activity detection to data-enriched validation, specifically cross-referencing file-system modifications against globally crowdsourced threat indicators.
+
+The end-to-end data pipeline operates under the following execution path:
+
+1. **Trigger:** A file creation event occurs within a monitored target directory (such as the standard user `Downloads` folder), which is tracked continuously via custom **Sysmon FileCreate (Event ID 11)** monitoring.
+2. **Local Collection & Inspection:** The creation event invokes a background integration loop. A custom PowerShell analysis thread isolates the target object, computes its cryptographic signature (SHA-256 hash), and targets the **VirusTotal API v3 endpoint** for reputation scoring.
+3. **Structured Audit Logging:** The result of the API analysis is committed asynchronously to a local flat-text syslog file (`active-responses.log`). The automation string leverages direct .NET file-stream handling (`[System.IO.File]::AppendAllLines`) to maintain non-blocking file access and bypass concurrent read/write OS locks.
+4. **SIEM Ingestion & Rule Parsing:** The local Wazuh Agent collects the syslog string via an optimized absolute-path engine block and ships it across the encrypted tunnel (`TCP 1514`) to the **Wazuh Manager**. 
+5. **Dashboard Visualization:** The Manager filters the raw incoming text stream through a decoupled detection module (**Custom Rule ID: 100050**), parsing the explicit string pattern and raising a **Level 12 Critical Security Alert** instantly onto the centralized SIEM Dashboard.
+
+---
+
+### Technical Implementation
+
+#### 1. Endpoint Enrichment Script (`C:\Program Files (x86)\ossec-agent\active-response\bin\virustotal.ps1`)
+This automated script handles API transactions, captures responses, filters out communication or rate-limit errors, and appends a cleanly parsed audit trail to the log file in standard UTF-8 encoding:
+
+```powershell
+# 1. Configuration
+$API_KEY = "a0c13d5790fb7289d1dcf71a28b22123b76bcb2699350b65abb84253f0c9b5b4"
+$log_path = "C:\Program Files (x86)\ossec-agent\active-response\active-responses.log"
+
+# 2. Read the JSON payload
+$input_json = $input | Out-String
+
+try {
+    $alert_data = $input_json | ConvertFrom-Json
+    $file_path = $alert_data.parameters.alert.data.win.eventdata.targetFilename
+    
+    if (Test-Path $file_path) {
+        $file_hash = (Get-FileHash -Path $file_path -Algorithm SHA256).Hash
+        $vt_url = "https://www.virustotal.com/api/v3/files/$file_hash"
+        
+        # 3. Use standalone curl.exe to bypass ALL Windows SSL/TLS issues
+        # -s (silent), -H (header), -k (insecure/ignore cert errors)
+        $curl_cmd = "curl.exe -s -k -H `"x-apikey: $API_KEY`" `"$vt_url`""
+        $json_response = Invoke-Expression $curl_cmd
+        
+        $response = $json_response | ConvertFrom-Json
+        
+        $malicious = $response.data.attributes.last_analysis_stats.malicious
+        $total = $malicious + $response.data.attributes.last_analysis_stats.harmless + $response.data.attributes.last_analysis_stats.undetected
+        
+        $msg = "$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') active-response/bin/virustotal.ps1: SUCCESS - Hash: $file_hash | Malicious: $malicious / $total"
+        Add-Content -Path $log_path -Value $msg
+    }
+}
+catch {
+    Add-Content -Path $log_path -Value "$(Get-Date -Format 'yyyy/MM/dd HH:mm:ss') active-response/bin/virustotal.ps1: CRITICAL - $($_.Exception.Message)"
+}
+```

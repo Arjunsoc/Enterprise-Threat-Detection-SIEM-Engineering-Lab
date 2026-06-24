@@ -323,5 +323,7 @@ The rule tracking engine confirms critical operational metrics:
 During the development and integration of this threat intelligence pipeline, key architectural hurdles were identified and engineered around:
 
 **Process Concurrency & File Access Violations:** Standard Windows file-writing cmdlets like `Add-Content` can occasionally conflict with the real-time scanning loop of the Wazuh Agent's `logcollector` daemon. If the agent locks the log file to ship an event over the network at the exact millisecond the PowerShell script attempts to append a new detection result, Windows throws an IO file-locking error (`GetContentWriterIOError`).
+
 **Mitigation Strategy:** While restarting the local endpoint agent service releases stuck file handles, a robust production deployment can utilize explicit retry loops or native .NET file methods (`[System.IO.File]::AppendAllLines`) to guarantee non-blocking, asynchronous shared read/write access.
- **Decoupled Rule Ingestion:** By stripping parent rule dependencies (`<if_sid>`) from the custom Wazuh Manager rule, the SIEM treats the incoming log from the file collector as a standalone event stream. This ensures reliable text pattern matching against the `SUCCESS` string, completely eliminating silent parsing drops.
+
+**Decoupled Rule Ingestion:** By stripping parent rule dependencies (`<if_sid>`) from the custom Wazuh Manager rule, the SIEM treats the incoming log from the file collector as a standalone event stream. This ensures reliable text pattern matching against the `SUCCESS` string, completely eliminating silent parsing drops.

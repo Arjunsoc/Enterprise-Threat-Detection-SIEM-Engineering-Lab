@@ -278,3 +278,18 @@ To reliably catch the text pattern independent of rigid log group constraints or
         <description>VirusTotal Integration: Threat Intelligence confirmed malicious file hash match.</description>
     </rule>
 ```
+**4. Active Response Core Configuration (`ossec.conf` - Wazuh Manager)**
+The Wazuh Manager is configured to trigger the PowerShell script directly when the primary file creation rule fires on the monitored endpoint.
+
+```xml
+<command>
+    <name>virustotal-response</name>
+    <executable>virustotal.ps1</executable>
+</command>
+
+<active-response>
+    <command>virustotal-response</command>
+    <location>local</location>
+    <rules_id>100030</rules_id> <!-- Triggers on Sysmon Event ID 11 -->
+</active-response>
+```

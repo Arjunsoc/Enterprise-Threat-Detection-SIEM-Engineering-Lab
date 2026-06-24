@@ -293,3 +293,33 @@ The Wazuh Manager is configured to trigger the PowerShell script directly when t
     <rules_id>100030</rules_id> <!-- Triggers on Sysmon Event ID 11 -->
 </active-response>
 ```
+###  Operational Validation & Pipeline Verification
+
+To confirm the successful implementation of the end-to-end data enrichment loop, tactical verification tests were conducted across both the Windows endpoint and the centralized SIEM Manager.
+
+ **1. Endpoint Automation Execution**
+On the Windows endpoint, dropping a simulated asset within the monitored directory immediately triggers the underlying alert pipeline. Checking the local log tail confirms that the agent successfully intercepts the telemetry, calculates the file footprint, and updates the local threat index database:
+
+<img width="1237" height="363" alt="Screenshot 2026-06-24 012058" src="https://github.com/user-attachments/assets/c6fd2e25-e9b4-4a09-99a5-261f336898af" />
+
+
+**2. SIEM Log Analysis & Parsing Validation**
+To verify how the threat engine decodes the unstructured text log entry, the raw log data stream was passed directly through the live internal parsing engine (`wazuh-logtest`). 
+
+The test results demonstrate flawless processing across all internal data phases, moving from initial date extraction (`windows-date-format`) to independent custom rule matching:
+
+<img width="668" height="486" alt="Screenshot 2026-06-24 145940" src="https://github.com/user-attachments/assets/3c4695c7-6588-40a4-b795-103ef630c3f8" />
+
+
+The rule tracking engine confirms critical operational metrics:
+**Phase 1 & 2:** Successfully sanitizes the event string and targets the timestamp data format.
+**Phase 3:** Drops conditional state dependencies and evaluates the standalone message match string, verifying that **Rule 100050 fires a Level 12 Critical Security Alert** instantly.
+
+---
+
+### Core Engineering Notes & Troubleshooting
+During the development and integration of this threat intelligence pipeline, key architectural hurdles were identified and engineered around:
+
+**Process Concurrency & File Access Violations:** Standard Windows file-writing cmdlets like `Add-Content` can occasionally conflict with the real-time scanning loop of the Wazuh Agent's `logcollector` daemon. If the agent locks the log file to ship an event over the network at the exact millisecond the PowerShell script attempts to append a new detection result, Windows throws an IO file-locking error (`GetContentWriterIOError`).
+**Mitigation Strategy:** While restarting the local endpoint agent service releases stuck file handles, a robust production deployment can utilize explicit retry loops or native .NET file methods (`[System.IO.File]::AppendAllLines`) to guarantee non-blocking, asynchronous shared read/write access.
+ **Decoupled Rule Ingestion:** By stripping parent rule dependencies (`<if_sid>`) from the custom Wazuh Manager rule, the SIEM treats the incoming log from the file collector as a standalone event stream. This ensures reliable text pattern matching against the `SUCCESS` string, completely eliminating silent parsing drops.

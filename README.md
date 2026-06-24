@@ -308,7 +308,9 @@ To verify how the threat engine decodes the unstructured text log entry, the raw
 
 The test results demonstrate flawless processing across all internal data phases, moving from initial date extraction (`windows-date-format`) to independent custom rule matching:
 
+
 <img width="668" height="486" alt="Screenshot 2026-06-24 145940" src="https://github.com/user-attachments/assets/3c4695c7-6588-40a4-b795-103ef630c3f8" />
+
 
 
 The rule tracking engine confirms critical operational metrics:

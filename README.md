@@ -202,7 +202,7 @@ Inspection of the endpoint active response log trace confirms that the automated
    <img width="772" height="493" alt="Screenshot 2026-06-21 135027" src="https://github.com/user-attachments/assets/226a9113-3f07-4e28-a4f7-be19aefb6fc6" />
 
 
-## Phase 4: Cross-Platform Threa Intelligence Enrichment & Centralized Alerting Pipeline
+## Phase 4: Cross-Platform Threat Intelligence Enrichment(Virus Total) & Centralized Alerting Pipeline
 
 ### Architectural Overview
 To supplement endpoint behavioral monitoring with global threat intelligence, an automated **Threat Intelligence Enrichment pipeline** was integrated into the architecture. This phase shifts the system from standalone activity detection to data-enriched validation, specifically cross-referencing file-system modifications against globally crowdsourced threat indicators.

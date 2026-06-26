@@ -37,5 +37,12 @@
     <group>defense_evasion,log_clearing</group>
   </rule>
 
+  <rule id="100050" level="12">
+    <location>active-response\active-responses.log</location>
+    <match>virustotal.ps1: SUCCESS</match>
+    <description>VirusTotal detected malicious file activity.</description>
+    <group>windows_sysmon,virustotal,</group>
+  </rule>
+
 </group>
 
